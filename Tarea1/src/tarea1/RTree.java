@@ -32,7 +32,7 @@ public class RTree {
 		double[] diff = {0,0};
 		MBR nodeMBR = rn.mbr;
 		MBR entryMBR = n.mbr;
-		for(int i=0; i<2; i++){
+		for(int i = 0; i < 2; i++){
 			
 			if(nodeMBR.point[i] + nodeMBR.size[i] < entryMBR.point[i] + entryMBR.size[i]){
 				diff[i] =  entryMBR.point[i] + entryMBR.size[i] - nodeMBR.point[i] + nodeMBR.size[i];
@@ -41,7 +41,14 @@ public class RTree {
 				diff[i] += nodeMBR.point[i] - entryMBR.point[i];
 			}
 		}
-		return 0;
+		
+		double areaWithEntry = 0;
+		for(int i = 0; i < 2; i++){
+			
+			areaWithEntry *= nodeMBR.size[i] + diff[i];
+			
+		}
+		return areaWithEntry - area;
 	}
 	
 	/**
