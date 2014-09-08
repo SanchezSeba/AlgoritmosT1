@@ -9,7 +9,13 @@ public class RTree {
 		
 		RNode l = leafToInsert(root, n);
 	}
-
+	
+	/**
+	 * Selecciona el nodo o subnodo de r donde se debe insertar n
+	 * @param r subarbol donde se busca el nodo donde se debe realizar la insercion
+	 * @param n nodo a insertar
+	 * @return nodo donde se debe insertar n
+	 */
 	private RNode leafToInsert(RNode r, REntry n) {
 		
 		if(r.isLeaf){
@@ -22,10 +28,27 @@ public class RTree {
 		for(RNode rn : r.children){
 			
 			double inc = calculateInc(rn, n);
+			if(inc < minInc){
+				minInc = inc;
+				node = rn;
+			}
+			else if(inc == minInc){
+				double nodeArea = calculateArea(node);
+				double rnArea = calculateArea(rn);
+				if(rnArea < nodeArea)
+					node = rn;
+			}
 		}
-		return null;
+		
+		return leafToInsert(node, n);
 	}
-
+	
+	/**
+	 * Calcula el incremento de area al agregar n al nodo rn
+	 * @param rn nodo
+	 * @param n nodo a agregar
+	 * @return incremento de area
+	 */
 	private double calculateInc(RNode rn, REntry n) {
 		
 		double area = calculateArea(rn);
@@ -42,7 +65,7 @@ public class RTree {
 			}
 		}
 		
-		double areaWithEntry = 0;
+		double areaWithEntry = 1;
 		for(int i = 0; i < 2; i++){
 			
 			areaWithEntry *= nodeMBR.size[i] + diff[i];
