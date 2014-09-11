@@ -7,7 +7,25 @@ public class RTree {
 	private RNode root;
 	private int grade;
 	private boolean quadratic;
+	private final int blockSize = 4096;
+	private double nextPosition;
+	private double nodeInBlockSize;
 	
+	public RTree(int grade, boolean quadratic){
+		this.grade = grade;
+		this.quadratic = quadratic;
+		this.nextPosition = 0;
+		double nodeInByteSize = 0; //CALCULAR PESO DE UN NODO
+		this.nodeInBlockSize = Math.ceil(nodeInByteSize/blockSize);
+		this.root = new RNode(grade, nextPosition(), 1);
+				
+	}
+	
+	private double nextPosition() {
+		// TODO Auto-generated method stub
+		return 0;
+	}
+
 	public void insert(REntry n){
 		
 		RNode leaf = leafToInsert(root, n);
