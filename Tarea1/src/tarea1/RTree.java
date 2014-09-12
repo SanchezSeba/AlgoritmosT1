@@ -29,14 +29,14 @@ public class RTree {
 			private MBR myMBR; 32
 				double[] points; 8 * 2
 				double[] sizes; 8 * 2
-			private MBR[] mbr; 32 * 2 * grade
+			private MBR[] mbr; 32 * 2 * grade + 32
 				double[] points; 8 * 2
 				double[] sizes; 8 * 2
 			private int grade; 4
-			private long[] childrensPosition;  8 * 2 * grade
+			private long[] childrensPosition;  8 * 2 * grade + 8
 			private int numberOfChildrens; 4
 		 */
-		double nodeSizeInBytes = 12 + (2 * grade + 1) * 8 + (2 * grade + 1) * 32;
+		double nodeSizeInBytes = 12 + (2 * grade + 2) * 8 + (2 * grade + 2) * 32;
 		this.nodeSizeInBlocks = (int)Math.ceil(nodeSizeInBytes/blockSize);
 		this.root = new RNode(grade, position(), 1);
 		
@@ -141,7 +141,7 @@ public class RTree {
 		long childrenPosition = r.getChildrenPositionIndex(indexBestInc);
 		RNode node = loadNode(childrenPosition);
 		
-		return leafToInsert(node, n);
+		return leafToInsert(node, mbr);
 	}
 	
 	private RNode loadNode(long childrenPosition) throws IOException {

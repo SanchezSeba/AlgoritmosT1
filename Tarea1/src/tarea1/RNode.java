@@ -1,5 +1,6 @@
 package tarea1;
 
+import java.nio.ByteBuffer;
 import java.util.LinkedList;
 
 public class RNode {
@@ -34,7 +35,27 @@ public class RNode {
 	}
 
 	public RNode(byte[] nodeBytes) {
-		
+		int pointer = 0;
+		this.isLeaf = ByteBuffer.wrap(nodeBytes, pointer, 4).getInt();
+		pointer += 4;
+		this.position = ByteBuffer.wrap(nodeBytes, pointer, 8).getLong();
+		pointer += 8;
+		this.grade = ByteBuffer.wrap(nodeBytes, pointer, 4).getInt();
+		pointer += 4;
+		this.numberOfChildrens =ByteBuffer.wrap(nodeBytes, pointer, 4).getInt();
+		pointer += 4;
+		this.childrensPosition = new long[2 * grade + 1];
+		for(int i=0; i < numberOfChildrens; i++){
+			this.childrensPosition[i] = ByteBuffer.wrap(nodeBytes, pointer, 8).getLong();
+			pointer += 8;
+		}
+		this.myMBR = new MBR(nodeBytes, pointer);
+		pointer += 2 * 2 * 8;
+		this.mbr = new MBR[2 * grade + 1];
+		for(int i=0; i < numberOfChildrens; i++){
+			this.mbr[i] = new MBR(nodeBytes, pointer);
+			pointer += 2 * 2 * 8;
+		}
 	}
 
 	public double getArea() {
