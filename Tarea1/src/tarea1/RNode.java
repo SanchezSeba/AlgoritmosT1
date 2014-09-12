@@ -5,12 +5,12 @@ import java.util.LinkedList;
 public class RNode {
 	
 	private int isLeaf;
-	private double position;
+	private long position;
 	private MBR myMBR;
 	private MBR[] mbr;
-	private RNode parent;
 	private int grade;
-	private double[] childrens;
+	private long[] childrensPosition;
+	private int numberOfChildrens;
 	/*
 	public RNode(MBR mbr2, boolean isLeaf2, RNode parent2) {
 		this.myMBR = mbr2;
@@ -19,10 +19,22 @@ public class RNode {
 		this.childrens = null;
 	}*/
 
-	public RNode(int grade, double position, int isLeaf) {
+	public int getNumberOfChildrens() {
+		return numberOfChildrens;
+	}
+
+	public void setNumberOfChildrens(int numberOfChildrens) {
+		this.numberOfChildrens = numberOfChildrens;
+	}
+
+	public RNode(int grade, long position, int isLeaf) {
 		this.grade = grade;
 		this.position = position;
 		this.isLeaf = isLeaf;
+	}
+
+	public RNode(byte[] nodeBytes) {
+		
 	}
 
 	public double getArea() {
@@ -41,19 +53,45 @@ public class RNode {
 		return myMBR.getSize(i);
 	}
 
-	public LinkedList<RNode> getChildrens() {
-		return childrens;
-	}
 
-	public boolean isLeaf() {
+	public int isLeaf() {
 		return isLeaf;
 	}
 
-	public RNode getParent() {
-		return parent;
+
+	public MBR[] getMbr() {
+		return mbr;
+	}
+
+	public void setMbr(MBR[] mbr) {
+		this.mbr = mbr;
 	}
 	
-	public void setParent(RNode leaf) {
-		parent = leaf;		
+	public MBR getMBRWithIndex(int index){
+		return mbr[index];
+	}
+
+	public double getAreaMBRIndex(int index) {		
+		return mbr[index].getArea() ;
+	}
+
+	public double getPointMBRIndex(int i, int index) {
+		return mbr[index].getPoint(i);
+	}
+
+	public double getSizeMBRIndex(int i, int index) {
+		return mbr[index].getSize(i);
+	}
+
+	public long[] getChildrensPosition() {
+		return childrensPosition;
+	}
+
+	public void setChildrensPosition(long[] childrensPosition) {
+		this.childrensPosition = childrensPosition;
+	}
+
+	public long getChildrenPositionIndex(int indexBestInc) {
+		return childrensPosition[indexBestInc];
 	}
 }

@@ -1,34 +1,58 @@
 package tarea1;
 
+import Nodo;
+
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.RandomAccessFile;
 import java.util.LinkedList;
 
 public class RTree {
 	
 	private RNode root;
 	private int grade;
-	private boolean quadratic;
+	private boolean isQuadratic;
 	private final int blockSize = 4096;
-	private double nextPosition;
-	private double nodeInBlockSize;
+	private long nextPosition;
+	private int nodeSizeInBlocks;
 	
-	public RTree(int grade, boolean quadratic){
+	private RandomAccessFile file;
+	
+	public RTree(int grade, boolean quadratic) throws FileNotFoundException{
 		this.grade = grade;
-		this.quadratic = quadratic;
+		this.isQuadratic = quadratic;
 		this.nextPosition = 0;
-		double nodeInByteSize = 0; //CALCULAR PESO DE UN NODO
-		this.nodeInBlockSize = Math.ceil(nodeInByteSize/blockSize);
-		this.root = new RNode(grade, nextPosition(), 1);
+		
+		/*Peso en byte nodo:
+		 *  private int isLeaf  4
+			private long position; 8
+			private MBR myMBR; 32
+				double[] points; 8 * 2
+				double[] sizes; 8 * 2
+			private MBR[] mbr; 32 * 2 * grade
+				double[] points; 8 * 2
+				double[] sizes; 8 * 2
+			private int grade; 4
+			private long[] childrensPosition;  8 * 2 * grade
+			private int numberOfChildrens; 4
+		 */
+		double nodeSizeInBytes = 12 + (2 * grade + 1) * 8 + (2 * grade + 1) * 32;
+		this.nodeSizeInBlocks = (int)Math.ceil(nodeSizeInBytes/blockSize);
+		this.root = new RNode(grade, position(), 1);
+		
+		this.file = new RandomAccessFile("RTree.obj", "rw");
 				
 	}
 	
-	private double nextPosition() {
-		// TODO Auto-generated method stub
-		return 0;
+	private long position() {
+		long i = nextPosition;
+		nextPosition += nodeSizeInBlocks * blockSize;
+		return i;
 	}
 
-	public void insert(REntry n){
+	public void insert(MBR mbr){
 		
-		RNode leaf = leafToInsert(root, n);
+		RNode leaf = leafToInsert(root, mbr);
 		leaf.getChildrens().add(n);
 		n.setParent(leaf);
 		
@@ -45,7 +69,7 @@ public class RTree {
 		}
 		LinkedList<RNode> childrens = leaf.getChildrens();
 		leaf.getChildrens().clear();
-		RNode[] nodeGroup = quadratic ? makeQuadraticGroup(childrens) : makeLinearGroup(childrens); 
+		RNode[] nodeGroup = isQuadratic ? makeQuadraticGroup(childrens) : makeLinearGroup(childrens); 
 		
 		return null;
 	}
@@ -91,56 +115,51 @@ public class RTree {
 		return nodes;
 	}
 
-	/**
-	 * Selecciona el nodo de r donde se debe insertar n
-	 * 
-	 * @param r subarbol donde se busca el nodo donde se debe realizar la insercion
-	 * @param n nodo a insertar
-	 * @return nodo donde se debe insertar n
-	 */
-	private RNode leafToInsert(RNode r, REntry n) {
+	private RNode leafToInsert(RNode r, MBR mbr) {
 		
-		if(r.isLeaf()){
+		if(r.isLeaf() == 1){
 			return r;
 		}
 		
 		double minInc = Double.MAX_VALUE;
-		RNode node = null;
+		int indexBestInc = -1;
 		
-		for(RNode rn : r.getChildrens()){
-			
-			double inc = calculateInc(rn, n);
+		for(int i=0; i < r.getNumberOfChildrens(); i++){			
+			double inc = calculateInc(r, mbr, i);
 			if(inc < minInc){
 				minInc = inc;
-				node = rn;
+				indexBestInc = i;
 			}
-			else if(inc == minInc){
-				double nodeArea = node.getArea();
-				double rnArea = rn.getArea();
-				if(rnArea < nodeArea)
-					node = rn;
+			else if(inc == minInc && indexBestInc != -1){
+				double bestIncArea = r.getAreaMBRIndex(indexBestInc);
+				double actualMBRArea = r.getAreaMBRIndex(i);
+				if(actualMBRArea < bestIncArea)
+					indexBestInc = i;
 			}
 		}
+		
+		long childrenPosition = r.getChildrenPositionIndex(indexBestInc);
+		RNode node = loadNode(childrenPosition);
 		
 		return leafToInsert(node, n);
 	}
 	
-	/**
-	 * Calcula el incremento de area al agregar n al nodo rn
-	 * 
-	 * @param rn nodo
-	 * @param n nodo a agregar
-	 * @return incremento de area
-	 */
-	private double calculateInc(RNode rn, REntry n) {
-		
-		double area = rn.getArea();
-		double areaWithEntry = 1;
+	private RNode loadNode(long childrenPosition) throws IOException {
+		file.seek(childrenPosition);
+		byte[] nodeBytes = new byte[(nodeSizeInBlocks * blockSize)];
+		file.read(nodeBytes);
+		return new RNode(nodeBytes);
+	}
+
+	private double calculateInc(RNode node, MBR mbr, int index) {		
+		double area = node.getAreaMBRIndex(index);
+		double areaWithNewMBR = 1;
 		for(int i=0; i < 2; i++){
-			double min = Math.min(rn.getPoint(i), n.getPoint(i));
-			double max = Math.max(rn.getPoint(i) + rn.getSize(i), n.getPoint(i) + n.getSize(i));
-			areaWithEntry *= max - min;
+			double min = Math.min(node.getPointMBRIndex(i, index), mbr.getPoint(i));
+			double max = Math.max(node.getPointMBRIndex(i, index) + node.getSizeMBRIndex(i, index), 
+					mbr.getPoint(i) + mbr.getSize(i));
+			areaWithNewMBR *= max - min;
 		}
-		return Math.abs(areaWithEntry) - area;
+		return Math.abs(areaWithNewMBR) - area;
 	}
 }
