@@ -1,11 +1,8 @@
 package tarea1;
 
-import Nodo;
-
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.RandomAccessFile;
-import java.util.LinkedList;
 
 public class RTree {
 	
@@ -35,8 +32,9 @@ public class RTree {
 			private int grade; 4
 			private long[] childrensPosition;  8 * 2 * grade + 8
 			private int numberOfChildrens; 4
+			private long parentPos; 8
 		 */
-		double nodeSizeInBytes = 12 + (2 * grade + 2) * 8 + (2 * grade + 2) * 32;
+		double nodeSizeInBytes = 12 + (2 * grade + 3) * 8 + (2 * grade + 2) * 32;
 		this.nodeSizeInBlocks = (int)Math.ceil(nodeSizeInBytes/blockSize);
 		this.root = new RNode(grade, position(), 1);
 		
@@ -50,72 +48,188 @@ public class RTree {
 		return i;
 	}
 
-	public void insert(MBR mbr){
-		
+	public void insert(MBR mbr) throws IOException{
+		if(root.getNumberOfChildrens() != 0)
+			System.out.println(root.toString());
 		RNode leaf = leafToInsert(root, mbr);
-		leaf.getChildrens().add(n);
-		n.setParent(leaf);
-		
-		if(leaf.getChildrens().size() >= grade * 2){
+		leaf.addMBR(mbr, -1);
+		if(leaf.getNumberOfChildrens() > grade * 2){
 			RNode[] nodes = makeSplit(leaf);
+			check(nodes);
 		}
+		else{
+			checkSizeOfMBR(leaf);
+		}
+		System.out.println(root.toString());
 	}
 	
+	private void checkSizeOfMBR(RNode leaf) throws IOException {
+		if(leaf.getParentPos() != -1L){
+			RNode node = loadNode(leaf.getParentPos());
+			node.replace(leaf);
+			saveNode(leaf);
+			checkSizeOfMBR(node);
+		}
+		else 
+			saveNode(leaf);
+	}
+
+	private void check(RNode[] nodes) throws IOException {
+		long parentPos = nodes[0].getParentPos();
+		if(parentPos == -1L){
+			root = new RNode(grade, position(), 0);
+			root.addMBR(nodes[0].getMyMBR(), nodes[0].getPosition());
+			root.addMBR(nodes[1].getMyMBR(), nodes[1].getPosition());
+			nodes[0].setParentPos(root.getPosition());
+			nodes[1].setParentPos(root.getPosition());
+			saveNode(nodes[0]);
+			saveNode(nodes[1]);
+			saveNode(root);
+			return;
+		}
+		RNode r = loadNode(parentPos);
+		r.addMBR(nodes[1].getMyMBR(), nodes[1].getPosition());
+		r.replace(nodes[0]);
+		saveNode(nodes[0]);
+		saveNode(nodes[1]);
+		if(r.getNumberOfChildrens() > grade * 2){
+			RNode[] nodes2 = makeSplit(r);
+			check(nodes2);
+		}
+		else{
+			checkSizeOfMBR(r);
+		}
+	}
+
 	private RNode[] makeSplit(RNode leaf) {
-		
-		RNode[] nodes = new RNode[]{leaf, new RNode(leaf.getMBR(), leaf.isLeaf(), leaf.getParent())};
-		if(leaf.getParent() != null){
-			leaf.getParent().getChildrens().add(nodes[1]);
-		}
-		LinkedList<RNode> childrens = leaf.getChildrens();
-		leaf.getChildrens().clear();
-		RNode[] nodeGroup = isQuadratic ? makeQuadraticGroup(childrens) : makeLinearGroup(childrens); 
-		
-		return null;
-	}
-
-
-	private RNode[] makeLinearGroup(LinkedList<RNode> children) {
-		// TODO Auto-generated method stub
-		return null;
-	}
-	
-	/**
-	 * Crea 2 grupos iniciales con los rectangulos R1 y R2 cuyo incremento  de area es maximo si es que
-	 * fueran puestos en el mismo grupo
-	 * 
-	 * @param children lista de nodos
-	 * @return RNode[] con 2 grupos, uno con R1 y otro con R2
-	 */
-	private RNode[] makeQuadraticGroup(LinkedList<RNode> children) {
-		
-		double maxInc = Double.MIN_VALUE;
-		RNode[] nodes = new RNode[2];
-		for(int i=0; i < children.size(); i++){
-			for(int j=i+1; j < children.size(); j++){
-				RNode node1 = children.get(i);
-				RNode node2 = children.get(j);
-				double area = 1;
-				for(int k=0; k < 2; k++){
-					double min = Math.min(node1.getPoint(i), node2.getPoint(i));
-					double max = Math.max(node1.getPoint(i) + node1.getSize(i), node2.getPoint(i) + node2.getSize(i));
-					area *= max - min;
+		System.out.println("Split");
+		RNode[] nodes = new RNode[]{leaf, new RNode(leaf.isLeaf(), 
+				leaf.getGrade(), leaf.getParentPos(), position())};
+		MBR[] childrens = leaf.getMbr();
+		long[] childrensPos = leaf.getChildrensPosition();
+		leaf.setMbr(new MBR[2 * grade + 1]);
+		leaf.setNumberOfChildrens(0);
+		int[] nodeGroup = isQuadratic ? makeQuadraticGroup(childrens) : makeLinearGroup(childrens); 
+		System.out.println(nodeGroup[0] + " " + nodeGroup[1]);
+		nodes[0].addMBR(childrens[nodeGroup[0]], childrensPos[nodeGroup[0]]);
+		nodes[1].addMBR(childrens[nodeGroup[1]], childrensPos[nodeGroup[1]]);
+		childrens[nodeGroup[0]] = null;
+		childrens[nodeGroup[1]] = null;
+		while(notEmpty(childrens)){
+			if(nodes[0].getNumberOfChildrens() > grade){
+				nodes[1].addListMBR(childrens, childrensPos);
+				return nodes;
+			}
+			else if(nodes[1].getNumberOfChildrens() > grade){
+				nodes[0].addListMBR(childrens, childrensPos);
+				return nodes;
+			}
+			int i = isQuadratic ? selectNextQ(childrens, nodes) : selectNextL(childrens, nodes);
+			double area1 = incAddMBR(childrens[i], nodes[0]);
+			double area2 = incAddMBR(childrens[i], nodes[1]);
+			if(area1 > area2){
+				nodes[1].addMBR(childrens[i], childrensPos[i]);
+			}
+			else if(area2 > area1){
+				nodes[0].addMBR(childrens[i], childrensPos[i]);
+			}
+			else{
+				if(nodes[0].getArea() > nodes[1].getArea()){
+					nodes[1].addMBR(childrens[i], childrensPos[i]);
 				}
-				double areaInc = Math.abs(area) - (node1.getArea() + node2.getArea());
-				if(areaInc > maxInc){
-					maxInc = areaInc;
-					nodes[0] = node1;
-					nodes[1] = node2;
+				else if(nodes[0].getArea() < nodes[1].getArea()){
+					nodes[0].addMBR(childrens[i], childrensPos[i]);
+				}
+				else{
+					if(nodes[0].getNumberOfChildrens() < nodes[1].getNumberOfChildrens()){
+						nodes[0].addMBR(childrens[i], childrensPos[i]);
+					}
+					else{
+						nodes[1].addMBR(childrens[i], childrensPos[i]);
+					}
+				}
+			}
+			childrens[i] = null;
+		}
+		return nodes;
+	}
+
+
+	private int selectNextQ(MBR[] childrens, RNode[] nodes) {
+		double maxArea = Double.MIN_VALUE;
+		int index = -1;
+		for(int i=0; i < childrens.length; i++){
+			if(childrens[i] != null){
+				double area1 = incAddMBR(childrens[i], nodes[0]);
+				double area2 = incAddMBR(childrens[i], nodes[1]);
+				double diff = Math.abs(area1- area2);
+				if(diff > maxArea){
+					maxArea = diff;
+					index = i;
 				}
 			}
 		}
-		children.remove(nodes[0]);
-		children.remove(nodes[1]);
+		System.out.println(index);
+		return index;
+	}
+
+	private double incAddMBR(MBR mbr, RNode rNode) {
+		double nodeArea = rNode.getArea();
+		double areaWithMBR = 1;
+		for(int i=0; i < 2; i++){
+			double min = Math.min(rNode.getPoint(i), mbr.getPoint(i));
+			double max = Math.max(rNode.getPoint(i) + rNode.getSize(i), 
+					mbr.getPoint(i) + mbr.getSize(i));
+			areaWithMBR *= max - min;
+		}
+		return areaWithMBR - nodeArea;
+	}
+
+	private int selectNextL(MBR[] childrens, RNode[] nodes) {
+		// TODO Auto-generated method stub
+		return 0;
+	}
+
+	private boolean notEmpty(MBR[] childrens) {
+		for(int i=0; i < childrens.length; i++){
+			if(childrens[i] != null)
+				return true;
+		}
+		return false;
+	}
+
+	private int[] makeLinearGroup(MBR[] children) {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	private int[] makeQuadraticGroup(MBR[] children) {
+		
+		double maxInc = Double.MIN_VALUE;
+		int[] nodes = {-1, -1};
+		for(int i=0; i < children.length; i++){
+			for(int j=i+1; j < children.length; j++){
+				double area = 1;
+				for(int k=0; k < 2; k++){
+					double min = Math.min(children[i].getPoint(k), children[j].getPoint(k));
+					double max = Math.max(children[i].getPoint(k) + children[i].getSize(k), 
+							children[j].getPoint(k) + children[j].getSize(k));
+					area *= max - min;
+				}
+				double areaInc = Math.abs(area) - (children[i].getArea() + children[j].getArea());
+				System.out.println(areaInc);
+				if(areaInc > maxInc){
+					maxInc = areaInc;
+					nodes[0] = i;
+					nodes[1] = j;
+				}
+			}
+		}
 		
 		return nodes;
 	}
 
-	private RNode leafToInsert(RNode r, MBR mbr) {
+	private RNode leafToInsert(RNode r, MBR mbr) throws IOException {
 		
 		if(r.isLeaf() == 1){
 			return r;
@@ -150,6 +264,13 @@ public class RTree {
 		file.read(nodeBytes);
 		return new RNode(nodeBytes);
 	}
+	
+	private void saveNode(RNode leaf) throws IOException {
+		file.seek(leaf.getPosition());
+		byte[] nodeBytes = new byte[(nodeSizeInBlocks * blockSize)];
+		leaf.toBytes(nodeBytes);
+		file.write(nodeBytes);
+	}
 
 	private double calculateInc(RNode node, MBR mbr, int index) {		
 		double area = node.getAreaMBRIndex(index);
@@ -161,5 +282,21 @@ public class RTree {
 			areaWithNewMBR *= max - min;
 		}
 		return Math.abs(areaWithNewMBR) - area;
+	}
+	
+	public static void main(String[] args) throws IOException {
+		RTree rtree = new RTree(1, true);
+		double[] point = new double[2];
+		double[] size = new double[2];
+		for (int i = 0; i < 100; i++) {
+			point[0] = Math.round(Math.random()*100*100)/100;
+			point[1] = Math.round(Math.random()*100*100)/100;
+			size[0] = Math.round(Math.random()*100*100)/100;
+			size[1] = Math.round(Math.random()*100*100)/100;
+			rtree.insert(new MBR(point, size));
+			System.out.println("add");
+		}
+		
+
 	}
 }
