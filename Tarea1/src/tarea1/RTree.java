@@ -49,8 +49,8 @@ public class RTree {
 	}
 
 	public void insert(MBR mbr) throws IOException{
-		if(root.getNumberOfChildrens() != 0)
-			System.out.println(root.toString());
+		/*if(root.getNumberOfChildrens() != 0)
+			System.out.println(root.toString());*/
 		RNode leaf = leafToInsert(root, mbr);
 		leaf.addMBR(mbr, -1);
 		if(leaf.getNumberOfChildrens() > grade * 2){
@@ -60,18 +60,23 @@ public class RTree {
 		else{
 			checkSizeOfMBR(leaf);
 		}
-		System.out.println(root.toString());
+		//System.out.println(root.toString());
 	}
 	
 	private void checkSizeOfMBR(RNode leaf) throws IOException {
 		if(leaf.getParentPos() != -1L){
 			RNode node = loadNode(leaf.getParentPos());
+			//System.out.println("NODO CARGADO3" + node.toString());
+			//System.out.println(leaf.toString());
 			node.replace(leaf);
 			saveNode(leaf);
+			//System.out.println("NODO GUARDADO" + leaf.toString());
 			checkSizeOfMBR(node);
 		}
-		else 
+		else {
 			saveNode(leaf);
+			//System.out.println("NODO GUARDADO" + leaf.toString());
+			}
 	}
 
 	private void check(RNode[] nodes) throws IOException {
@@ -85,13 +90,20 @@ public class RTree {
 			saveNode(nodes[0]);
 			saveNode(nodes[1]);
 			saveNode(root);
+			//System.out.println("NODO GUARDADO" + nodes[0].toString());
+			//System.out.println("NODO GUARDADO" + nodes[1].toString());
+			//System.out.println("NODO GUARDADO" + root.toString());
 			return;
 		}
 		RNode r = loadNode(parentPos);
 		r.addMBR(nodes[1].getMyMBR(), nodes[1].getPosition());
+		//System.out.println("NODO CARGADO1" + r.toString());
+		//System.out.println(nodes[0].toString());
 		r.replace(nodes[0]);
 		saveNode(nodes[0]);
 		saveNode(nodes[1]);
+		//System.out.println("NODO GUARDADO" + nodes[0].toString());
+		//System.out.println("NODO GUARDADO" + nodes[1].toString());
 		if(r.getNumberOfChildrens() > grade * 2){
 			RNode[] nodes2 = makeSplit(r);
 			check(nodes2);
@@ -101,27 +113,43 @@ public class RTree {
 		}
 	}
 
-	private RNode[] makeSplit(RNode leaf) {
-		System.out.println("Split");
+	private RNode[] makeSplit(RNode leaf) throws IOException {
+		//System.out.println("Split");
 		RNode[] nodes = new RNode[]{leaf, new RNode(leaf.isLeaf(), 
 				leaf.getGrade(), leaf.getParentPos(), position())};
 		MBR[] childrens = leaf.getMbr();
 		long[] childrensPos = leaf.getChildrensPosition();
+		leaf.setChildrensPosition(new long[2 * grade + 1]);
 		leaf.setMbr(new MBR[2 * grade + 1]);
 		leaf.setNumberOfChildrens(0);
+		leaf.setMyMBR(null);
 		int[] nodeGroup = isQuadratic ? makeQuadraticGroup(childrens) : makeLinearGroup(childrens); 
-		System.out.println(nodeGroup[0] + " " + nodeGroup[1]);
+		//System.out.println(nodeGroup[0] + " " + nodeGroup[1]);
 		nodes[0].addMBR(childrens[nodeGroup[0]], childrensPos[nodeGroup[0]]);
 		nodes[1].addMBR(childrens[nodeGroup[1]], childrensPos[nodeGroup[1]]);
+		refreshParent(childrensPos[nodeGroup[0]], nodes[0].getPosition());
+		refreshParent(childrensPos[nodeGroup[1]], nodes[1].getPosition());
 		childrens[nodeGroup[0]] = null;
 		childrens[nodeGroup[1]] = null;
 		while(notEmpty(childrens)){
 			if(nodes[0].getNumberOfChildrens() > grade){
-				nodes[1].addListMBR(childrens, childrensPos);
+				for(int i=0; i < childrens.length; i++){
+					if(childrens[i] != null){
+						nodes[1].addMBR(childrens[i], childrensPos[i]);
+						refreshParent(childrensPos[i], nodes[1].getPosition());
+						childrens[i] = null;
+					}
+				}
 				return nodes;
 			}
 			else if(nodes[1].getNumberOfChildrens() > grade){
-				nodes[0].addListMBR(childrens, childrensPos);
+				for(int i=0; i < childrens.length; i++){
+					if(childrens[i] != null){
+						nodes[0].addMBR(childrens[i], childrensPos[i]);
+						refreshParent(childrensPos[i], nodes[0].getPosition());
+						childrens[i] = null;
+					}
+				}
 				return nodes;
 			}
 			int i = isQuadratic ? selectNextQ(childrens, nodes) : selectNextL(childrens, nodes);
@@ -129,23 +157,31 @@ public class RTree {
 			double area2 = incAddMBR(childrens[i], nodes[1]);
 			if(area1 > area2){
 				nodes[1].addMBR(childrens[i], childrensPos[i]);
+				refreshParent(childrensPos[i], nodes[1].getPosition());
+				//System.out.println("Agregado a la DER");
 			}
 			else if(area2 > area1){
 				nodes[0].addMBR(childrens[i], childrensPos[i]);
+				refreshParent(childrensPos[i], nodes[0].getPosition());
+				//System.out.println("Agregado a la IZQ");
 			}
 			else{
 				if(nodes[0].getArea() > nodes[1].getArea()){
 					nodes[1].addMBR(childrens[i], childrensPos[i]);
+					refreshParent(childrensPos[i], nodes[1].getPosition());
 				}
 				else if(nodes[0].getArea() < nodes[1].getArea()){
 					nodes[0].addMBR(childrens[i], childrensPos[i]);
+					refreshParent(childrensPos[i], nodes[0].getPosition());
 				}
 				else{
 					if(nodes[0].getNumberOfChildrens() < nodes[1].getNumberOfChildrens()){
 						nodes[0].addMBR(childrens[i], childrensPos[i]);
+						refreshParent(childrensPos[i], nodes[0].getPosition());
 					}
 					else{
 						nodes[1].addMBR(childrens[i], childrensPos[i]);
+						refreshParent(childrensPos[i], nodes[1].getPosition());
 					}
 				}
 			}
@@ -155,8 +191,16 @@ public class RTree {
 	}
 
 
+	private void refreshParent(long l, long parentPos) throws IOException {
+		if(l != -1){
+			RNode node = loadNode(l);
+			node.setParentPos(parentPos);
+			saveNode(node);
+		}
+	}
+
 	private int selectNextQ(MBR[] childrens, RNode[] nodes) {
-		double maxArea = Double.MIN_VALUE;
+		double maxArea = - Double.MAX_VALUE;
 		int index = -1;
 		for(int i=0; i < childrens.length; i++){
 			if(childrens[i] != null){
@@ -169,7 +213,7 @@ public class RTree {
 				}
 			}
 		}
-		System.out.println(index);
+		//System.out.println(index);
 		return index;
 	}
 
@@ -205,7 +249,7 @@ public class RTree {
 
 	private int[] makeQuadraticGroup(MBR[] children) {
 		
-		double maxInc = Double.MIN_VALUE;
+		double maxInc = - Double.MAX_VALUE;
 		int[] nodes = {-1, -1};
 		for(int i=0; i < children.length; i++){
 			for(int j=i+1; j < children.length; j++){
@@ -217,7 +261,7 @@ public class RTree {
 					area *= max - min;
 				}
 				double areaInc = Math.abs(area) - (children[i].getArea() + children[j].getArea());
-				System.out.println(areaInc);
+				//System.out.println(areaInc);
 				if(areaInc > maxInc){
 					maxInc = areaInc;
 					nodes[0] = i;
@@ -254,7 +298,7 @@ public class RTree {
 		
 		long childrenPosition = r.getChildrenPositionIndex(indexBestInc);
 		RNode node = loadNode(childrenPosition);
-		
+		//System.out.println("NODO CARGADO2" + node.toString());
 		return leafToInsert(node, mbr);
 	}
 	
@@ -288,15 +332,21 @@ public class RTree {
 		RTree rtree = new RTree(1, true);
 		double[] point = new double[2];
 		double[] size = new double[2];
-		for (int i = 0; i < 100; i++) {
-			point[0] = Math.round(Math.random()*100*100)/100;
-			point[1] = Math.round(Math.random()*100*100)/100;
-			size[0] = Math.round(Math.random()*100*100)/100;
-			size[1] = Math.round(Math.random()*100*100)/100;
+		for (int i = 0; i < 1000; i++) {
+			point[0] = Math.round(Math.random()*500000);
+			point[1] = Math.round(Math.random()*500000);
+			size[0] = Math.round(Math.random()*(100-1))+1;
+			size[1] = Math.round(Math.random()*(100-1))+1;
+			//System.out.println("Agregando : : : " + new MBR(point, size).toString());
 			rtree.insert(new MBR(point, size));
-			System.out.println("add");
+			//System.out.println("add");
 		}
-		
+		point[0]= 6.2;
+		point[1]=6.3;
+		size[0] = 1000;
+		size[1] = 1000;
+		rtree.insert(new MBR(point, size));
+		System.out.println(rtree.root.getMyMBR().toString());
 
 	}
 }

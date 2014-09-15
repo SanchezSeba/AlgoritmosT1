@@ -22,6 +22,7 @@ public class RNode {
 	}*/
 
 	public RNode(int grade, long position, int isLeaf) {
+		this.myMBR = null;
 		this.grade = grade;
 		this.position = position;
 		this.isLeaf = isLeaf;
@@ -213,6 +214,10 @@ public class RNode {
 		return "Nodo: leaf:" + isLeaf + " position:" + position + " mymbr:" + myMBR.toString() + " mbrss:" + Arrays.toString(mbr)
 				+ " grade:" + grade + " Childrenspos:" + Arrays.toString(childrensPosition) + " numberChildrens" +
 				 numberOfChildrens + " Parentpos" + parentPos;
+	}
+
+	public void setMyMBR(MBR myMBR) {
+		this.myMBR = myMBR;
 	}
 
 }
