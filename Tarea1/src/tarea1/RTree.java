@@ -341,12 +341,19 @@ public class RTree {
 			rtree.insert(new MBR(point, size));
 			//System.out.println("add");
 		}
-		point[0]= 6.2;
+		/*point[0]= 6.2;
 		point[1]=6.3;
 		size[0] = 1000;
 		size[1] = 1000;
-		rtree.insert(new MBR(point, size));
+		rtree.insert(new MBR(point, size));*/
 		System.out.println(rtree.root.getMyMBR().toString());
-
+		RNode nod = rtree.loadNode(rtree.root.getChildrenPositionIndex(0));
+		RNode nod1 = rtree.loadNode(rtree.root.getChildrenPositionIndex(1));
+		System.out.println(nod.getMyMBR().toString());
+		System.out.println(nod1.getMyMBR().toString());
+		RNode n2 =rtree.loadNode(nod.getChildrenPositionIndex(0));
+		RNode n3 =rtree.loadNode(nod.getChildrenPositionIndex(1));
+		System.out.println(n2.getMyMBR().toString());
+		System.out.println(n3.getMyMBR().toString());
 	}
 }
