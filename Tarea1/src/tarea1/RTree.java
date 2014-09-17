@@ -15,7 +15,7 @@ public class RTree {
 	private int nodeSizeInBlocks;	
 	private RandomAccessFile file;
 	
-	private int diskAccess;
+	int diskAccess;
 	
 	public RTree(int grade, boolean quadratic) throws FileNotFoundException{
 		this.grade = grade;
@@ -62,7 +62,7 @@ public class RTree {
 		else{
 			checkSizeOfMBR(leaf);
 		}
-		//System.out.println(root.toString());
+		this.root = loadNode(root.getPosition());
 	}
 	
 	private void checkSizeOfMBR(RNode leaf) throws IOException {
@@ -232,8 +232,12 @@ public class RTree {
 	}
 
 	private int selectNextL(MBR[] childrens, RNode[] nodes) {
-		// TODO Auto-generated method stub
-		return 0;
+		for(int i=0; i < childrens.length; i++){
+			if(childrens[i] != null)
+				return i;
+		}
+		//no deberia llegar hasta aqui
+		return -1;
 	}
 
 	private boolean notEmpty(MBR[] childrens) {
@@ -245,8 +249,36 @@ public class RTree {
 	}
 
 	private int[] makeLinearGroup(MBR[] children) {
-		// TODO Auto-generated method stub
-		return null;
+		int[] nodes = {0, 0};
+		double best = 0;
+		for(int i=0; i < 2; i++){
+			double minPoint = Double.MAX_VALUE;
+			double maxPoint = - Double.MAX_VALUE;
+			double maxMinPoint = - Double.MAX_VALUE;
+			double minMaxPoint = Double.MAX_VALUE;
+			int[] index = {-1, -1};
+			for(int j=0; j < children.length; j++){
+				if(children[j].getPoint(i) < minPoint)
+					minPoint = children[j].getPoint(i);
+				if(children[j].getPoint(i) + children[j].getSize(i) > maxPoint)
+					maxPoint = children[j].getPoint(i) + children[j].getSize(i);
+				if(children[j].getPoint(i) > maxMinPoint){
+					maxMinPoint = children[j].getPoint(i);
+					index[0] = j; 
+				}
+				if(children[j].getPoint(i) + children[j].getSize(i) < minMaxPoint){
+					minMaxPoint = children[j].getPoint(i) + children[j].getSize(i);
+					index[1] = j;
+				}					
+			}
+			double best2 = Math.abs((minMaxPoint - maxMinPoint)/(maxPoint - minPoint));
+			if(best2 > best){
+				nodes[0] = index[0];
+				nodes[1] = index[1];
+				best = best2;
+			}
+		}
+		return nodes;
 	}
 
 	private int[] makeQuadraticGroup(MBR[] children) {
@@ -372,25 +404,25 @@ public class RTree {
 	}
 
 	public static void main(String[] args) throws IOException {
-		RTree rtree = new RTree(1, true);
+		RTree rtree = new RTree(1, false);
 		double[] point = new double[2];
 		double[] size = new double[2];
-		for (int i = 0; i < 1000; i++) {
+		for (int i = 0; i < 6; i++) {
 			point[0] = Math.round(Math.random()*500000);
 			point[1] = Math.round(Math.random()*500000);
 			size[0] = Math.round(Math.random()*(100-1))+1;
 			size[1] = Math.round(Math.random()*(100-1))+1;
-			//System.out.println("Agregando : : : " + new MBR(point, size).toString());
+			System.out.println("Agregando : : : " + new MBR(point, size).toString());
 			rtree.insert(new MBR(point, size));
-			//System.out.println("add");
+			System.out.println("add");
 		}
-		
+		/*
 		point[0]= 0;
 		point[1]=0;
 		size[0] = 50000;
 		size[1] = 50000;
 		System.out.println(rtree.search(new MBR(point, size)).size());
-		/*rtree.insert(new MBR(point, size));
+		rtree.insert(new MBR(point, size));*/
 		System.out.println(rtree.root.getMyMBR().toString());
 		RNode nod = rtree.loadNode(rtree.root.getChildrenPositionIndex(0));
 		RNode nod1 = rtree.loadNode(rtree.root.getChildrenPositionIndex(1));
@@ -399,6 +431,6 @@ public class RTree {
 		RNode n2 =rtree.loadNode(nod.getChildrenPositionIndex(0));
 		RNode n3 =rtree.loadNode(nod.getChildrenPositionIndex(1));
 		System.out.println(n2.getMyMBR().toString());
-		System.out.println(n3.getMyMBR().toString());*/
+		System.out.println(n3.getMyMBR().toString());
 	}
 }
