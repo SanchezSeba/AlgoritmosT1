@@ -39,6 +39,15 @@ public class MBR {
 		this.sizes[1] = size[1];
 	}
 
+	public MBR(double px, double py, double sx, double sy) {
+		this.points = new double[2];
+		this.sizes = new double[2];
+		this.points[0] = px;
+		this.points[1] = py;
+		this.sizes[0] = sx;
+		this.sizes[1] = sy;
+	}
+
 	public void toBytes(byte[] nodeBytes, int pointer) {
 		for(int i=0; i < 2; i++){
 			ByteBuffer.wrap(nodeBytes, pointer, 8).putDouble(this.points[i]);

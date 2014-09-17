@@ -4,6 +4,7 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.util.LinkedList;
+import java.util.Random;
 
 public class RTree {
 	
@@ -402,35 +403,81 @@ public class RTree {
 		}
 		return true;
 	}
+	
+	//generador de puntos uniformemente distribuidos
+	public static LinkedList<MBR> randomGenerator(double size){
+		LinkedList<MBR> mbrs = new LinkedList<MBR>();
+		for(int i=0; i < size; i++) {
+			double px = getHaltonNumber(i, 2, 499900); //499900 para no tener rectangulos fuera
+			double py = getHaltonNumber(i, 3, 499900);
+			double area = getHaltonNumber(i, 2, 100);
+			
+			double sx = getHaltonNumber(i, 2, area); 
+			double sy = area / sx;
+			mbrs.add(new MBR(px, py, sx, sy));
+		
+		}
+		return mbrs;
+	}
+	
+	//para generar puntos uniformemente distribuidos
+	static double getHaltonNumber(int index, int base, double size) {
+		index++;
+
+		double x = 0;
+		double factor = 1.0/base;
+		while(index > 0) {
+			x += (index % base) * factor;
+			factor /= base;
+			index /= base;
+		}
+		return x*size;
+	}	
+	
+	//genera rectangulos para consultar
+	static public LinkedList<MBR> totalRandom(double size){
+		LinkedList<MBR> mbrs = new LinkedList<MBR>();
+		Random rand = new Random();
+		int max = 500000;
+		for(int i=0; i < size; i++) {
+			double px = rand.nextInt(max + 1);
+			double py = rand.nextInt(max + 1);
+			
+			double sx = rand.nextInt(max + 1);
+			double sy = rand.nextInt(max + 1);
+			mbrs.add(new MBR(px, py, sx, sy));
+		
+		}
+		return mbrs;
+	}
 
 	public static void main(String[] args) throws IOException {
-		RTree rtree = new RTree(1, false);
-		double[] point = new double[2];
-		double[] size = new double[2];
-		for (int i = 0; i < 6; i++) {
-			point[0] = Math.round(Math.random()*500000);
-			point[1] = Math.round(Math.random()*500000);
-			size[0] = Math.round(Math.random()*(100-1))+1;
-			size[1] = Math.round(Math.random()*(100-1))+1;
-			System.out.println("Agregando : : : " + new MBR(point, size).toString());
-			rtree.insert(new MBR(point, size));
-			System.out.println("add");
+		
+		double sizeTest = Math.pow(2, 4);//tamaño del conjunto
+		LinkedList<MBR> rectangles = randomGenerator(sizeTest); 
+		
+		//desde aqui medir tiempo
+		RTree rtree = new RTree(24, false);
+		while(!rectangles.isEmpty()) {
+			rtree.insert(rectangles.pop());
 		}
-		/*
-		point[0]= 0;
-		point[1]=0;
-		size[0] = 50000;
-		size[1] = 50000;
-		System.out.println(rtree.search(new MBR(point, size)).size());
-		rtree.insert(new MBR(point, size));*/
-		System.out.println(rtree.root.getMyMBR().toString());
-		RNode nod = rtree.loadNode(rtree.root.getChildrenPositionIndex(0));
-		RNode nod1 = rtree.loadNode(rtree.root.getChildrenPositionIndex(1));
-		System.out.println(nod.getMyMBR().toString());
-		System.out.println(nod1.getMyMBR().toString());
-		RNode n2 =rtree.loadNode(nod.getChildrenPositionIndex(0));
-		RNode n3 =rtree.loadNode(nod.getChildrenPositionIndex(1));
-		System.out.println(n2.getMyMBR().toString());
-		System.out.println(n3.getMyMBR().toString());
+		//Hasta aqui medimos tiempo
+		
+		System.out.println(rtree.diskAccess); //numero de accesos a disco total para insertar
+		
+		//reseteamos accesos a disco para saber cuantos hacen las busquedas
+		rtree.diskAccess = 0;
+		
+		LinkedList<MBR> toSearch = totalRandom(sizeTest/10);
+		
+		//desde aqui medir tiempo
+		while(!toSearch.isEmpty()) {
+			rtree.search(toSearch.pop());
+		}
+		//Hasta aqui medimos tiempo
+		
+		//numero de accesos a disco total para todas las busquedas
+		System.out.println(rtree.diskAccess);
+		
 	}
 }
