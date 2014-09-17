@@ -3,6 +3,7 @@ package tarea1;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.RandomAccessFile;
+import java.util.LinkedList;
 
 public class RTree {
 	
@@ -11,9 +12,10 @@ public class RTree {
 	private boolean isQuadratic;
 	private final int blockSize = 4096;
 	private long nextPosition;
-	private int nodeSizeInBlocks;
-	
+	private int nodeSizeInBlocks;	
 	private RandomAccessFile file;
+	
+	private int diskAccess;
 	
 	public RTree(int grade, boolean quadratic) throws FileNotFoundException{
 		this.grade = grade;
@@ -36,9 +38,9 @@ public class RTree {
 		 */
 		double nodeSizeInBytes = 12 + (2 * grade + 3) * 8 + (2 * grade + 2) * 32;
 		this.nodeSizeInBlocks = (int)Math.ceil(nodeSizeInBytes/blockSize);
-		this.root = new RNode(grade, position(), 1);
-		
+		this.root = new RNode(grade, position(), 1);		
 		this.file = new RandomAccessFile("RTree.obj", "rw");
+		this.diskAccess = 0;
 				
 	}
 	
@@ -306,6 +308,7 @@ public class RTree {
 		file.seek(childrenPosition);
 		byte[] nodeBytes = new byte[(nodeSizeInBlocks * blockSize)];
 		file.read(nodeBytes);
+		diskAccess++; //para contar accesos a disco por busqueda
 		return new RNode(nodeBytes);
 	}
 	
@@ -328,6 +331,46 @@ public class RTree {
 		return Math.abs(areaWithNewMBR) - area;
 	}
 	
+	public LinkedList<MBR> search(MBR mbr) throws IOException{
+		LinkedList<MBR> list = new LinkedList<MBR>();
+		search(mbr, root, list);
+		return list;
+	}
+	
+
+	private void search(MBR mbr, RNode node, LinkedList<MBR> list) throws IOException {
+		for(int i=0; i < node.getNumberOfChildrens(); i++){
+			if(intersection(mbr, node.getMBRWithIndex(i))){
+				if(node.isLeaf() == 1){
+					list.add(node.getMBRWithIndex(i));
+				}
+				else{
+					RNode node2 = loadNode(node.getChildrenPositionIndex(i));
+					search(mbr, node2, list);
+				}
+			}
+		}		
+	}
+
+	private boolean intersection(MBR mbr, MBR nodeMBR) {
+		for(int i=0; i < 2; i++){
+			boolean intersection = false;
+			if(mbr.getPoint(i) <= nodeMBR.getPoint(i)){
+				if(mbr.getPoint(i) + mbr.getSize(i) >= nodeMBR.getPoint(i)){
+					intersection = true;
+				}
+			}
+			else if(mbr.getPoint(i) >= nodeMBR.getPoint(i)){
+				if(mbr.getPoint(i) <= nodeMBR.getPoint(i) + nodeMBR.getSize(i)){
+					intersection = true;
+				}
+			}
+			if(!intersection)
+				return false;
+		}
+		return true;
+	}
+
 	public static void main(String[] args) throws IOException {
 		RTree rtree = new RTree(1, true);
 		double[] point = new double[2];
@@ -341,11 +384,13 @@ public class RTree {
 			rtree.insert(new MBR(point, size));
 			//System.out.println("add");
 		}
-		/*point[0]= 6.2;
-		point[1]=6.3;
-		size[0] = 1000;
-		size[1] = 1000;
-		rtree.insert(new MBR(point, size));*/
+		
+		point[0]= 0;
+		point[1]=0;
+		size[0] = 50000;
+		size[1] = 50000;
+		System.out.println(rtree.search(new MBR(point, size)).size());
+		/*rtree.insert(new MBR(point, size));
 		System.out.println(rtree.root.getMyMBR().toString());
 		RNode nod = rtree.loadNode(rtree.root.getChildrenPositionIndex(0));
 		RNode nod1 = rtree.loadNode(rtree.root.getChildrenPositionIndex(1));
@@ -354,6 +399,6 @@ public class RTree {
 		RNode n2 =rtree.loadNode(nod.getChildrenPositionIndex(0));
 		RNode n3 =rtree.loadNode(nod.getChildrenPositionIndex(1));
 		System.out.println(n2.getMyMBR().toString());
-		System.out.println(n3.getMyMBR().toString());
+		System.out.println(n3.getMyMBR().toString());*/
 	}
 }

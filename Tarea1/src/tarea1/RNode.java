@@ -5,7 +5,7 @@ import java.util.Arrays;
 
 public class RNode {
 	
-	private int isLeaf;
+	private int isLeaf; // 1 = leaf   ; 0 = node
 	private long position;
 	private MBR myMBR;
 	private MBR[] mbr;
