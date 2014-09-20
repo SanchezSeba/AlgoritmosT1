@@ -1,10 +1,26 @@
 package tarea1;
 
+import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.RandomAccessFile;
+import java.io.Serializable;
+import java.net.MalformedURLException;
+import java.util.HashMap;
 import java.util.LinkedList;
+import java.util.Map;
 import java.util.Random;
+
+import org.geotools.data.DataStore;
+import org.geotools.data.DataStoreFinder;
+import org.geotools.data.FeatureSource;
+import org.geotools.feature.FeatureCollection;
+import org.geotools.feature.FeatureIterator;
+import org.geotools.swing.data.JFileDataStoreChooser;
+import org.opengis.feature.simple.SimpleFeature;
+import org.opengis.geometry.BoundingBox;
+
+import com.vividsolutions.jts.geom.MultiLineString;
 
 public class RTree {
 	
@@ -450,11 +466,49 @@ public class RTree {
 		}
 		return mbrs;
 	}
+	
+	static public LinkedList<MBR> getRealData() throws IOException{
+		LinkedList<MBR> list = new LinkedList<MBR>();
+		File f = JFileDataStoreChooser.showOpenFile("shp", null);
+	    if (f == null) {
+	    	return list;
+	    }        
+
+	    Map<String, Serializable> map = new HashMap<>();
+	    map.put( "url", f.toURI().toURL() );
+
+	    DataStore dataStore = DataStoreFinder.getDataStore( map );
+	    String typeName = dataStore.getTypeNames()[0];
+
+	    FeatureSource source = dataStore.getFeatureSource( typeName );
+
+	    FeatureCollection collection =  source.getFeatures();
+	    FeatureIterator<SimpleFeature> results = collection.features();
+	    
+	    try {
+            while (results.hasNext()) {
+                SimpleFeature feature = (SimpleFeature) results.next();
+                BoundingBox b = feature.getBounds();
+                list.add(new MBR(b.getMinX(), b.getMinY(),b.getWidth() , b.getHeight()));
+            }
+        } finally {
+            results.close();
+        }
+        dataStore.dispose();
+        return list;
+	}
 
 	public static void main(String[] args) throws IOException {
 		
+		//Para datos random
 		double sizeTest = Math.pow(2, 4);//tamaño del conjunto
 		LinkedList<MBR> rectangles = randomGenerator(sizeTest); 
+		
+		//desmarcar para obtener datos reales
+		//LinkedList<MBR> rectangles = getRealData();
+		//double sizeTest = 10482;
+		//para datos reales al momento de ejecutar el programa se pedira que selecciones el archivo
+		// .shp con los datos correspondientes. Se debe tener GeoTools instalado
 		
 		//desde aqui medir tiempo
 		RTree rtree = new RTree(24, false);
